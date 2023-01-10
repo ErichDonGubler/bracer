@@ -2,7 +2,7 @@ use anyhow::{bail, Context};
 use brace_expand::brace_expand;
 use clap::Parser;
 use std::{
-    ffi::OsString,
+    io::{stdout, Write},
     process::{exit, Command},
 };
 
@@ -17,7 +17,7 @@ enum Cli {
 struct ExecSubcommand {
     /// The command to run and its arguments, if any.
     #[clap(raw(true))]
-    command_and_args: Vec<OsString>,
+    command_and_args: Vec<String>,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -31,12 +31,8 @@ fn main() -> anyhow::Result<()> {
             let mut cmd = Command::new(cmd);
 
             for arg in args {
-                if let Some(s) = arg.to_str() {
-                    for expansion in brace_expand(s) {
-                        cmd.arg(expansion);
-                    }
-                } else {
-                    cmd.arg(arg);
+                for expansion in brace_expand(&arg) {
+                    cmd.arg(expansion);
                 }
             }
 
