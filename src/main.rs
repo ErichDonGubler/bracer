@@ -7,10 +7,24 @@ use std::{
 };
 
 /// A utility to expand brace notation arguments to a binary (i.e., `{a,b,c}`).
+///
+/// Note that this tool expects UTF-8 input.
 #[derive(Debug, Parser)]
 #[clap(about, author)]
 enum Cli {
+    Expand(ExpandSubcommand),
     Exec(ExecSubcommand),
+}
+
+/// Performs brace expansion on arguments provided after `--`.
+#[derive(Debug, Parser)]
+struct ExpandSubcommand {
+    /// Separate output components with a null (`\0`) byte.
+    #[clap(short = 'z', required(true))]
+    null_delimited: bool,
+    /// The arguments to expand into separated strings, if any.
+    #[clap(raw(true))]
+    args: Vec<String>,
 }
 
 #[derive(Debug, Parser)]
@@ -22,6 +36,22 @@ struct ExecSubcommand {
 
 fn main() -> anyhow::Result<()> {
     match Cli::parse() {
+        Cli::Expand(ExpandSubcommand {
+            null_delimited: _, // should unconditionally be `true` right now
+            args,
+        }) => {
+            let stdout = stdout();
+            let mut stdout = stdout.lock();
+
+            let mut output = args.iter().flat_map(|arg| brace_expand(&arg));
+            if let Some(component) = output.next() {
+                write!(stdout, "{component}").unwrap();
+            }
+            for component in output {
+                write!(stdout, "\0{component}").unwrap();
+            }
+            Ok(())
+        }
         Cli::Exec(ExecSubcommand { command_and_args }) => {
             let mut args = command_and_args.into_iter();
 
